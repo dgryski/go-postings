@@ -174,6 +174,35 @@ func (it *piter) next() bool {
 	return it.idx < len(it.list)
 }
 
+func (it *piter) advance(d DocID) bool {
+
+	// galloping search
+	bound := 1
+	for it.idx+bound < len(it.list) && d > it.list[it.idx+bound].Doc() {
+		bound *= 2
+	}
+
+	// inlined binary search between the last two steps
+	n := d
+	low, high := it.idx+bound/2, it.idx+bound
+	if high > len(it.list) {
+		high = len(it.list)
+	}
+
+	for low < high {
+		mid := low + (high-low)/2
+		if it.list[mid].Doc() >= n {
+			high = mid
+		} else {
+			low = mid + 1
+		}
+	}
+
+	it.idx = low
+
+	return !it.end()
+}
+
 func (it *piter) end() bool {
 	return it.idx >= len(it.list)
 }
@@ -221,13 +250,13 @@ scan:
 		}
 
 		for ait.at().Doc() < bit.at().Doc() {
-			if !ait.next() {
+			if !ait.advance(bit.at().Doc()) {
 				break scan
 			}
 		}
 
 		for !bit.end() && ait.at().Doc() > bit.at().Doc() {
-			if !bit.next() {
+			if !bit.advance(ait.at().Doc()) {
 				break scan
 			}
 		}
@@ -268,20 +297,14 @@ scan:
 		}
 
 		for ait.at().Doc() < bit.at().Doc() {
-			d := ait.at().Doc()
-			for ait.at().Doc() == d {
-				if !ait.next() {
-					break scan
-				}
+			if !ait.advance(bit.at().Doc()) {
+				break scan
 			}
 		}
 
 		for !bit.end() && ait.at().Doc() > bit.at().Doc() {
-			d := bit.at().Doc()
-			for bit.at().Doc() == d {
-				if !bit.next() {
-					break scan
-				}
+			if !bit.advance(ait.at().Doc()) {
+				break scan
 			}
 		}
 	}
