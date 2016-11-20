@@ -117,15 +117,31 @@ func (idx *Index) Query(ts []TermID) []Posting {
 // QueryPhrase returns a list of postings that match the term phrase
 func (idx *Index) QueryPhrase(ts []TermID) []Posting {
 
-	for _, t := range ts {
-		if len(idx.p[t]) == 0 {
-			return nil
-		}
+	docs := idx.Query(ts)
+
+	if docs == nil {
+		return nil
 	}
 
-	docs := idx.p[ts[0]]
+	d0iter := newIter(idx.p[ts[0]])
 
-	result := make([]Posting, len(docs))
+	result := make([]Posting, 0, len(idx.p[ts[0]]))
+
+	// filter docs from the first term with the final result set
+	for _, d := range docs {
+		doc := d.Doc()
+		if !d0iter.advance(doc) {
+			break
+		}
+		result = append(result, d0iter.at())
+		for d0iter.next() && d0iter.at().Doc() == doc {
+			result = append(result, d0iter.at())
+		}
+		if d0iter.end() {
+			break
+		}
+	}
+	docs = result
 
 	for _, t := range ts[1:] {
 		d := idx.p[t]
