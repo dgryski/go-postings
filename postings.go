@@ -101,7 +101,7 @@ func (idx *Index) Query(ts []TermID) []Posting {
 
 	sort.Sort(tfList{terms, freq})
 
-	docs := idx.p[ts[0]]
+	docs := idx.p[terms[0]]
 
 	result := make([]Posting, len(docs))
 
