@@ -35,7 +35,7 @@ func NewIndex(stop []TermID) *Index {
 	return &Index{p: p, stop: mstop}
 }
 
-func (idx *Index) AddDocument(terms []TermID) DocID {
+func (idx *Index) AddDocumentPositions(terms []TermID) DocID {
 
 	if len(terms) > 256 {
 		terms = terms[:256]
@@ -46,10 +46,25 @@ func (idx *Index) AddDocument(terms []TermID) DocID {
 		if _, ok := idx.stop[t]; ok {
 			continue
 		}
+		idx.p[t] = append(idx.p[t], makePosting(id, byte(i)))
+	}
+
+	idx.nextDocID++
+
+	return id
+}
+
+func (idx *Index) AddDocument(terms []TermID) DocID {
+
+	id := idx.nextDocID
+	for _, t := range terms {
+		if _, ok := idx.stop[t]; ok {
+			continue
+		}
+
 		idxt := idx.p[t]
-		l := len(idxt)
-		if l == 0 || idxt[l-1].Doc() != id {
-			idx.p[t] = append(idxt, makePosting(id, byte(i)))
+		if len(idxt) == 0 || idxt[len(idxt)-1].Doc() != id {
+			idx.p[t] = append(idx.p[t], makePosting(id, byte(0)))
 		}
 	}
 
