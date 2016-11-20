@@ -88,23 +88,24 @@ func (tf tfList) Less(i, j int) bool { return tf.freq[i] < tf.freq[j] }
 // Query returns a list of postings that match the terms
 func (idx *Index) Query(ts []TermID) []Posting {
 
-	var freq []int
-
-	for _, t := range ts {
+	freq := make([]int, len(ts))
+	terms := make([]TermID, len(ts))
+	for i, t := range ts {
 		d := idx.p[t]
 		if len(d) == 0 {
 			return nil
 		}
-		freq = append(freq, len(d))
+		terms[i] = t
+		freq[i] = len(d)
 	}
 
-	sort.Sort(tfList{ts, freq})
+	sort.Sort(tfList{terms, freq})
 
 	docs := idx.p[ts[0]]
 
 	result := make([]Posting, len(docs))
 
-	for _, t := range ts[1:] {
+	for _, t := range terms[1:] {
 		d := idx.p[t]
 		result = intersect(result[:0], docs, d)
 		docs = result
