@@ -109,6 +109,9 @@ func (idx *Index) Query(ts []TermID) []Posting {
 		d := idx.p[t]
 		result = intersect(result[:0], docs, d)
 		docs = result
+		if len(docs) == 0 {
+			return nil
+		}
 	}
 
 	return docs
@@ -147,6 +150,9 @@ func (idx *Index) QueryPhrase(ts []TermID) []Posting {
 		d := idx.p[t]
 		result = intersectPhrase(result[:0], docs, d)
 		docs = result
+		if len(docs) == 0 {
+			return nil
+		}
 	}
 
 	return docs
