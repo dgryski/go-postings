@@ -185,9 +185,6 @@ func (p Posting) String() string {
 const debug = false
 
 func makePosting(doc DocID, pos uint8) Posting {
-	if debug && (doc&0xff000000) != 0 {
-		panic("bad document ID")
-	}
 	return Posting(doc)<<8 | Posting(pos)
 }
 
