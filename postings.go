@@ -87,7 +87,7 @@ func (idx *Index) Query(ts []TermID) Postings {
 
 	for _, t := range terms[1:] {
 		d := idx.p[t]
-		result = intersect(result[:0], docs, d)
+		result = intersect(result[:0], newIter(docs), newIter(d))
 		docs = result
 		if len(docs) == 0 {
 			return nil
@@ -108,8 +108,8 @@ type piter struct {
 	idx  int
 }
 
-func newIter(l Postings) piter {
-	return piter{list: l}
+func newIter(l Postings) *piter {
+	return &piter{list: l}
 }
 
 func (it *piter) next() bool {
@@ -162,12 +162,16 @@ func (it *piter) at() DocID {
 	return it.list[it.idx]
 }
 
+type iterator interface {
+	at() DocID
+	end() bool
+	advance(DocID) bool
+	next() bool
+}
+
 // intersect returns the intersection of two posting lists
 // postings are returned deduplicated.
-func intersect(result, a, b Postings) Postings {
-
-	ait := newIter(a)
-	bit := newIter(b)
+func intersect(result Postings, ait, bit iterator) Postings {
 
 scan:
 	for !ait.end() && !bit.end() {
