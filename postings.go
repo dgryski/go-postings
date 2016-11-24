@@ -201,12 +201,8 @@ func newIter(l []Posting) piter {
 }
 
 func (it *piter) next() bool {
-	if it.idx >= len(it.list) {
-		return false
-	}
-
 	it.idx++
-	return it.idx < len(it.list)
+	return !it.end()
 }
 
 func (it *piter) advance(d DocID) bool {
