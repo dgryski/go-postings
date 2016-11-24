@@ -28,7 +28,8 @@ func TestCompressedBlock(t *testing.T) {
 	}
 }
 
-var _ iterator = (*cpiter)(nil)
+var _ Iterator = (*cblockiter)(nil)
+var _ Iterator = (*cpiter)(nil)
 
 func TestCompressedIntersect(t *testing.T) {
 
@@ -103,7 +104,7 @@ func TestCompressedPosting(t *testing.T) {
 	}
 }
 
-func compareIterators(printf func(string, ...interface{}), ait, bit iterator) error {
+func compareIterators(printf func(string, ...interface{}), ait, bit Iterator) error {
 
 	for !ait.end() && !bit.end() {
 

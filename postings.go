@@ -162,7 +162,7 @@ func (it *piter) at() DocID {
 	return it.list[it.idx]
 }
 
-type iterator interface {
+type Iterator interface {
 	at() DocID
 	end() bool
 	advance(DocID) bool
@@ -171,7 +171,7 @@ type iterator interface {
 
 // intersect returns the intersection of two posting lists
 // postings are returned deduplicated.
-func intersect(result Postings, ait, bit iterator) Postings {
+func intersect(result Postings, ait, bit Iterator) Postings {
 
 scan:
 	for !ait.end() && !bit.end() {
