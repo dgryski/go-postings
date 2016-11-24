@@ -8,7 +8,7 @@ type compressedBlock struct {
 	count  uint16 // how many IDs are in this block
 }
 
-type citer struct {
+type cblockiter struct {
 	c *compressedBlock // pointer to compressed posting list
 
 	group   [4]uint32 // the current group
@@ -66,9 +66,9 @@ func newCompressedBlock(docs Postings) (Postings, compressedBlock) {
 	return docs, cblock
 }
 
-func newCompressedIter(cblock compressedBlock) *citer {
+func newCompressedIter(cblock compressedBlock) *cblockiter {
 
-	iter := &citer{
+	iter := &cblockiter{
 		c:     &cblock,
 		docID: cblock.docID,
 	}
@@ -80,7 +80,7 @@ func newCompressedIter(cblock compressedBlock) *citer {
 	return iter
 }
 
-func (it *citer) load() {
+func (it *cblockiter) load() {
 	rem := it.c.count - it.count
 	if rem >= 4 {
 		groupvarint.Decode4(it.group[:], it.c.groups[it.offs:])
@@ -92,7 +92,7 @@ func (it *citer) load() {
 	}
 }
 
-func (it *citer) next() bool {
+func (it *cblockiter) next() bool {
 
 	it.count++
 
@@ -109,7 +109,7 @@ func (it *citer) next() bool {
 	return !it.end()
 }
 
-func (it *citer) advance(d DocID) bool {
+func (it *cblockiter) advance(d DocID) bool {
 
 	for !it.end() && it.at() < d {
 		it.next()
@@ -118,10 +118,10 @@ func (it *citer) advance(d DocID) bool {
 	return !it.end()
 }
 
-func (it *citer) at() DocID {
+func (it *cblockiter) at() DocID {
 	return it.docID
 }
 
-func (it *citer) end() bool {
+func (it *cblockiter) end() bool {
 	return it.count >= it.c.count
 }

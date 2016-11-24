@@ -26,7 +26,7 @@ func TestCompressedBlock(t *testing.T) {
 	}
 }
 
-var _ iterator = (*citer)(nil)
+var _ iterator = (*cblockiter)(nil)
 
 func TestCompressedIntersect(t *testing.T) {
 
