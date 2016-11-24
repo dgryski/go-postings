@@ -1,6 +1,8 @@
 package postings
 
 import (
+	"fmt"
+	"math/rand"
 	"reflect"
 	"testing"
 )
@@ -13,7 +15,7 @@ func TestCompressedBlock(t *testing.T) {
 
 	t.Logf("% 02x", cblock.groups)
 
-	it := newCompressedIter(cblock)
+	it := newCBlockIter(cblock)
 
 	var got Postings
 
@@ -26,7 +28,7 @@ func TestCompressedBlock(t *testing.T) {
 	}
 }
 
-var _ iterator = (*cblockiter)(nil)
+var _ iterator = (*cpiter)(nil)
 
 func TestCompressedIntersect(t *testing.T) {
 
@@ -37,11 +39,88 @@ func TestCompressedIntersect(t *testing.T) {
 	_, za := newCompressedBlock(a)
 	_, zb := newCompressedBlock(b)
 
-	got := intersect(nil, newCompressedIter(za), newCompressedIter(zb))
+	got := intersect(nil, newCBlockIter(za), newCBlockIter(zb))
 
 	want := Postings{1, 4, 6}
 
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("intersect()=%v, want=%v", got, want)
 	}
+}
+
+func makeInput(n int) Postings {
+	rand.Seed(0)
+
+	var input Postings
+
+	var docid DocID
+
+	for i := 0; i < n; i++ {
+
+		for j := 0; j < 4; j++ {
+
+			b := uint32(rand.Int31())
+
+			size := nlz(b)
+
+			delta := DocID(1)
+
+			switch size {
+			// case 0: none, because b > 0
+			case 1:
+				delta = DocID(rand.Intn(1 << 8))
+			case 2:
+				delta = 1<<8 + DocID(rand.Intn((1<<16)-(1<<8)))
+			case 3:
+				// delta = 1<<16 + DocID(rand.Intn((1<<24)-(1<<16)))
+			default:
+				// delta = 1<<24 + DocID(rand.Intn((1<<32)-(1<<24)))
+			}
+
+			docid += delta
+
+			input = append(input, docid)
+		}
+	}
+
+	return input
+}
+
+func TestCompressedPosting(t *testing.T) {
+
+	sizes := []int{128, 256, 512, 1024, 2048, 4096, 8192}
+
+	for _, s := range sizes {
+		p := makeInput(s)
+
+		cp := newCompressedPostings(p)
+
+		t.Logf("size=%d len(cp)=%d", s, len(cp))
+
+		if err := compareIterators(t.Logf, newIter(p), newCompressedIter(cp)); err != nil {
+			t.Fatalf("size: %d: err=%v", s, err)
+		}
+	}
+}
+
+func compareIterators(printf func(string, ...interface{}), ait, bit iterator) error {
+
+	for !ait.end() && !bit.end() {
+
+		a := ait.at()
+		b := bit.at()
+
+		if a != b {
+			return fmt.Errorf("mismatch: got=%d want=%d", a, b)
+		}
+
+		ait.next()
+		bit.next()
+	}
+
+	if ait.end() != bit.end() {
+		return fmt.Errorf("end length mismatch: a=%v b=%v", ait.end(), bit.end())
+	}
+
+	return nil
 }

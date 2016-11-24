@@ -2,6 +2,85 @@ package postings
 
 import "github.com/dgryski/go-groupvarint"
 
+type cPostings []compressedBlock
+
+type CompressedIndex struct {
+	p map[TermID]cPostings
+}
+
+func newCompressedPostings(p Postings) cPostings {
+	var cpostings cPostings
+
+	for len(p) > 0 {
+		var cb compressedBlock
+		p, cb = newCompressedBlock(p)
+		cpostings = append(cpostings, cb)
+	}
+
+	return cpostings
+}
+
+type cpiter struct {
+	c       cPostings
+	blockID int
+	it      *cblockiter
+}
+
+func newCompressedIter(cp cPostings) *cpiter {
+	var it *cblockiter
+
+	if len(cp) > 0 {
+		it = newCBlockIter(cp[0])
+	}
+
+	return &cpiter{
+		c:  cp,
+		it: it,
+	}
+
+}
+
+func (cp *cpiter) next() bool {
+
+	if !cp.it.next() {
+		// current iterator is finished
+		// grab the next one
+		cp.blockID++
+		if cp.blockID == len(cp.c) {
+			// no more blocks
+			return false
+		}
+		cp.it = newCBlockIter(cp.c[cp.blockID])
+	}
+
+	return true
+}
+
+func (cp *cpiter) advance(d DocID) bool {
+
+	if !cp.it.advance(d) {
+		// end of current iterator
+		// linear scan for next one
+		// TODO(dgryski): binary/galloping search?
+		for cp.blockID+1 < len(cp.c) && cp.c[cp.blockID+1].docID < d {
+			cp.blockID++
+		}
+
+		cp.it = newCBlockIter(cp.c[cp.blockID])
+		return cp.it.advance(d)
+	}
+
+	return !cp.end()
+}
+
+func (cp *cpiter) at() DocID {
+	return cp.it.at()
+}
+
+func (cp *cpiter) end() bool {
+	return cp.blockID == len(cp.c) || (cp.blockID == len(cp.c)-1 && cp.it.end())
+}
+
 type compressedBlock struct {
 	groups []byte // the compressed data
 	docID  DocID  // docID is the first ID in the block
@@ -66,7 +145,7 @@ func newCompressedBlock(docs Postings) (Postings, compressedBlock) {
 	return docs, cblock
 }
 
-func newCompressedIter(cblock compressedBlock) *cblockiter {
+func newCBlockIter(cblock compressedBlock) *cblockiter {
 
 	iter := &cblockiter{
 		c:     &cblock,
