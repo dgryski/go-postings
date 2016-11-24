@@ -103,7 +103,7 @@ func (it *citer) next() bool {
 	}
 
 	// consume next delta in group
-	it.docID += Posting(it.group[it.current] << 8)
+	it.docID += Posting(it.group[it.current])
 	it.current++
 
 	return true

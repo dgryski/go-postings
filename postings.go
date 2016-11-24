@@ -35,25 +35,6 @@ func NewIndex(stop []TermID) *Index {
 	return &Index{p: p, stop: mstop}
 }
 
-func (idx *Index) AddDocumentPositions(terms []TermID) DocID {
-
-	if len(terms) > 256 {
-		terms = terms[:256]
-	}
-
-	id := idx.nextDocID
-	for i, t := range terms {
-		if _, ok := idx.stop[t]; ok {
-			continue
-		}
-		idx.p[t] = append(idx.p[t], makePosting(id, byte(i)))
-	}
-
-	idx.nextDocID++
-
-	return id
-}
-
 func (idx *Index) AddDocument(terms []TermID) DocID {
 
 	id := idx.nextDocID
@@ -64,7 +45,7 @@ func (idx *Index) AddDocument(terms []TermID) DocID {
 
 		idxt := idx.p[t]
 		if len(idxt) == 0 || idxt[len(idxt)-1].Doc() != id {
-			idx.p[t] = append(idx.p[t], makePosting(id, byte(0)))
+			idx.p[t] = append(idx.p[t], Posting(id))
 		}
 	}
 
@@ -117,76 +98,19 @@ func (idx *Index) Query(ts []TermID) []Posting {
 	return docs
 }
 
-// QueryPhrase returns a list of postings that match the term phrase
-func (idx *Index) QueryPhrase(ts []TermID) []Posting {
-
-	docs := idx.Query(ts)
-
-	if docs == nil {
-		return nil
-	}
-
-	d0iter := newIter(idx.p[ts[0]])
-
-	result := make([]Posting, 0, len(idx.p[ts[0]]))
-
-	// filter docs from the first term with the final result set
-	for _, d := range docs {
-		doc := d.Doc()
-		if !d0iter.advance(doc) {
-			break
-		}
-		result = append(result, d0iter.at())
-		for d0iter.next() && d0iter.at().Doc() == doc {
-			result = append(result, d0iter.at())
-		}
-		if d0iter.end() {
-			break
-		}
-	}
-	docs = result
-
-	for _, t := range ts[1:] {
-		d := idx.p[t]
-		result = intersectPhrase(result[:0], docs, d)
-		docs = result
-		if len(docs) == 0 {
-			return nil
-		}
-	}
-
-	return docs
-}
-
-//  Posting is a document and character position
+//  Posting is a document
 type Posting uint32
-
-const (
-	// high 24-bits are the document ID
-	docMask = 0xffffff00
-	// low byte is the position
-	posMask = 0xff
-)
 
 // doc returns the masked docID
 func (p Posting) Doc() DocID {
-	return DocID(p) >> 8
-}
-
-// pos returns the position of the term in the document
-func (p Posting) Pos() uint32 {
-	return uint32(p) & posMask
+	return DocID(p)
 }
 
 func (p Posting) String() string {
-	return strconv.Itoa(int(p.Doc())) + "/" + strconv.Itoa(int(p.Pos()))
+	return strconv.Itoa(int(p.Doc()))
 }
 
 const debug = false
-
-func makePosting(doc DocID, pos uint8) Posting {
-	return Posting(doc)<<8 | Posting(pos)
-}
 
 // using iterators so we can abstract away posting lists once pools are implemented
 
@@ -248,60 +172,6 @@ func (it *piter) end() bool {
 
 func (it *piter) at() Posting {
 	return it.list[it.idx]
-}
-
-// intersectPhrase returns the intersection of two posting lists with the terms in b
-// occurring immediate after the terms in a
-func intersectPhrase(result, a, b []Posting) []Posting {
-
-	ait := newIter(a)
-	bit := newIter(b)
-
-scan:
-	for !ait.end() && !bit.end() {
-		for ait.at().Doc() == bit.at().Doc() {
-
-			if ait.at().Pos()+1 == bit.at().Pos() {
-				result = append(result, bit.at())
-
-				if !ait.next() {
-					break scan
-				}
-
-				if !bit.next() {
-					break scan
-				}
-				continue
-			}
-
-			if ait.at().Pos() < bit.at().Pos() {
-				if !ait.next() {
-					break scan
-				}
-				continue
-			}
-
-			if ait.at().Pos() >= bit.at().Pos() {
-				if !bit.next() {
-					break scan
-				}
-			}
-		}
-
-		for ait.at().Doc() < bit.at().Doc() {
-			if !ait.advance(bit.at().Doc()) {
-				break scan
-			}
-		}
-
-		for !bit.end() && ait.at().Doc() > bit.at().Doc() {
-			if !bit.advance(ait.at().Doc()) {
-				break scan
-			}
-		}
-	}
-
-	return result
 }
 
 // intersect returns the intersection of two posting lists
