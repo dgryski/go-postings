@@ -25,3 +25,23 @@ func TestCompressedBlock(t *testing.T) {
 		t.Errorf("roundtrip(%v)=%v failed", docs, got)
 	}
 }
+
+var _ iterator = (*citer)(nil)
+
+func TestCompressedIntersect(t *testing.T) {
+
+	a := Postings{1, 1, 2, 4, 6}
+
+	b := Postings{1, 1, 3, 3, 4, 6, 10}
+
+	_, za := newCompressedBlock(a)
+	_, zb := newCompressedBlock(b)
+
+	got := intersect(nil, newCompressedIter(za), newCompressedIter(zb))
+
+	want := Postings{1, 4, 6}
+
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("intersect()=%v, want=%v", got, want)
+	}
+}

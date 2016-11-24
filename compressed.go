@@ -106,7 +106,16 @@ func (it *citer) next() bool {
 	it.docID += DocID(it.group[it.current])
 	it.current++
 
-	return true
+	return !it.end()
+}
+
+func (it *citer) advance(d DocID) bool {
+
+	for !it.end() && it.at() < d {
+		it.next()
+	}
+
+	return !it.end()
 }
 
 func (it *citer) at() DocID {
