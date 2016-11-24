@@ -3,16 +3,16 @@ package postings
 import "github.com/dgryski/go-groupvarint"
 
 type compressedBlock struct {
-	groups []byte  // the compressed data
-	docID  Posting // docID is the first ID in the block
-	count  uint16  // how many IDs are in this block
+	groups []byte // the compressed data
+	docID  DocID  // docID is the first ID in the block
+	count  uint16 // how many IDs are in this block
 }
 
 type citer struct {
 	c *compressedBlock // pointer to compressed posting list
 
 	group   [4]uint32 // the current group
-	docID   Posting   // current docID (for tracking deltas)
+	docID   DocID     // current docID (for tracking deltas)
 	current uint16    // index into group[]
 	count   uint16    // IDs processed, to match against c.count
 	offs    uint16    // offset into c.groups
@@ -20,7 +20,7 @@ type citer struct {
 
 const blockLimitBytes = 4096
 
-func newCompressedBlock(docs []Posting) ([]Posting, compressedBlock) {
+func newCompressedBlock(docs Postings) (Postings, compressedBlock) {
 
 	cblock := compressedBlock{
 		docID: docs[0],
@@ -32,10 +32,10 @@ func newCompressedBlock(docs []Posting) ([]Posting, compressedBlock) {
 	deltas := make([]uint32, 4)
 
 	for len(docs) >= 4 {
-		deltas[0] = uint32(docs[0].Doc() - prev.Doc())
-		deltas[1] = uint32(docs[1].Doc() - docs[0].Doc())
-		deltas[2] = uint32(docs[2].Doc() - docs[1].Doc())
-		deltas[3] = uint32(docs[3].Doc() - docs[2].Doc())
+		deltas[0] = uint32(docs[0] - prev)
+		deltas[1] = uint32(docs[1] - docs[0])
+		deltas[2] = uint32(docs[2] - docs[1])
+		deltas[3] = uint32(docs[3] - docs[2])
 
 		b := groupvarint.Encode4(buf, deltas)
 
@@ -51,7 +51,7 @@ func newCompressedBlock(docs []Posting) ([]Posting, compressedBlock) {
 
 	// the remaining
 	for _, d := range docs {
-		b := groupvarint.Encode1(buf, uint32(d.Doc()-prev.Doc()))
+		b := groupvarint.Encode1(buf, uint32(d-prev))
 
 		if len(cblock.groups)+len(b) >= blockLimitBytes {
 			return docs, cblock
@@ -103,14 +103,14 @@ func (it *citer) next() bool {
 	}
 
 	// consume next delta in group
-	it.docID += Posting(it.group[it.current])
+	it.docID += DocID(it.group[it.current])
 	it.current++
 
 	return true
 }
 
-func (it *citer) at() Posting {
-	return Posting(it.docID)
+func (it *citer) at() DocID {
+	return it.docID
 }
 
 func (it *citer) end() bool {

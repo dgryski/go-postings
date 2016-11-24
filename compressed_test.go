@@ -7,7 +7,7 @@ import (
 
 func TestCompressedBlock(t *testing.T) {
 
-	docs := []Posting{100, 102, 110, 200, 500, 1000}
+	docs := Postings{100, 102, 110, 200, 500, 1000}
 
 	_, cblock := newCompressedBlock(docs)
 
@@ -15,10 +15,10 @@ func TestCompressedBlock(t *testing.T) {
 
 	it := newCompressedIter(cblock)
 
-	var got []Posting
+	var got Postings
 
 	for ; !it.end(); it.next() {
-		got = append(got, Posting(it.at()))
+		got = append(got, it.at())
 	}
 
 	if !reflect.DeepEqual(docs, got) {

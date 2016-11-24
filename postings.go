@@ -2,7 +2,6 @@ package postings
 
 import (
 	"sort"
-	"strconv"
 )
 
 // https://blog.twitter.com/2016/omnisearch-index-formats
@@ -14,13 +13,13 @@ type DocID uint32
 type TermID uint32
 
 type Index struct {
-	p         map[TermID][]Posting
+	p         map[TermID]Postings
 	nextDocID DocID
 	stop      map[TermID]struct{}
 }
 
 func NewIndex(stop []TermID) *Index {
-	p := make(map[TermID][]Posting)
+	p := make(map[TermID]Postings)
 
 	var mstop map[TermID]struct{}
 
@@ -44,8 +43,8 @@ func (idx *Index) AddDocument(terms []TermID) DocID {
 		}
 
 		idxt := idx.p[t]
-		if len(idxt) == 0 || idxt[len(idxt)-1].Doc() != id {
-			idx.p[t] = append(idx.p[t], Posting(id))
+		if len(idxt) == 0 || idxt[len(idxt)-1] != id {
+			idx.p[t] = append(idx.p[t], id)
 		}
 	}
 
@@ -67,7 +66,7 @@ func (tf tfList) Swap(i, j int) {
 func (tf tfList) Less(i, j int) bool { return tf.freq[i] < tf.freq[j] }
 
 // Query returns a list of postings that match the terms
-func (idx *Index) Query(ts []TermID) []Posting {
+func (idx *Index) Query(ts []TermID) Postings {
 
 	freq := make([]int, len(ts))
 	terms := make([]TermID, len(ts))
@@ -84,7 +83,7 @@ func (idx *Index) Query(ts []TermID) []Posting {
 
 	docs := idx.p[terms[0]]
 
-	result := make([]Posting, len(docs))
+	result := make(Postings, len(docs))
 
 	for _, t := range terms[1:] {
 		d := idx.p[t]
@@ -98,29 +97,18 @@ func (idx *Index) Query(ts []TermID) []Posting {
 	return docs
 }
 
-//  Posting is a document
-type Posting uint32
-
-// doc returns the masked docID
-func (p Posting) Doc() DocID {
-	return DocID(p)
-}
-
-func (p Posting) String() string {
-	return strconv.Itoa(int(p.Doc()))
-}
+//  Postings is a list of documents
+type Postings []DocID
 
 const debug = false
 
-// using iterators so we can abstract away posting lists once pools are implemented
-
 // piter is a posting list iterator
 type piter struct {
-	list []Posting
+	list Postings
 	idx  int
 }
 
-func newIter(l []Posting) piter {
+func newIter(l Postings) piter {
 	return piter{list: l}
 }
 
@@ -133,7 +121,7 @@ func (it *piter) advance(d DocID) bool {
 
 	// galloping search
 	bound := 1
-	for it.idx+bound < len(it.list) && d > it.list[it.idx+bound].Doc() {
+	for it.idx+bound < len(it.list) && d > it.list[it.idx+bound] {
 		bound *= 2
 	}
 
@@ -146,7 +134,7 @@ func (it *piter) advance(d DocID) bool {
 
 	for low < high {
 		mid := low + (high-low)/2
-		if it.list[mid].Doc() >= n {
+		if it.list[mid] >= n {
 			high = mid
 		} else {
 			low = mid + 1
@@ -155,8 +143,8 @@ func (it *piter) advance(d DocID) bool {
 
 	// linear scan back for the start of this document
 	if low < len(it.list) {
-		n = it.list[low].Doc()
-		for low > 0 && n == it.list[low-1].Doc() {
+		n = it.list[low]
+		for low > 0 && n == it.list[low-1] {
 			low--
 		}
 	}
@@ -170,13 +158,13 @@ func (it *piter) end() bool {
 	return it.idx >= len(it.list)
 }
 
-func (it *piter) at() Posting {
+func (it *piter) at() DocID {
 	return it.list[it.idx]
 }
 
 // intersect returns the intersection of two posting lists
 // postings are returned deduplicated.
-func intersect(result, a, b []Posting) []Posting {
+func intersect(result, a, b Postings) Postings {
 
 	ait := newIter(a)
 	bit := newIter(b)
@@ -184,35 +172,35 @@ func intersect(result, a, b []Posting) []Posting {
 scan:
 	for !ait.end() && !bit.end() {
 
-		for ait.at().Doc() == bit.at().Doc() {
+		for ait.at() == bit.at() {
 
 			result = append(result, bit.at())
 
 			var d DocID
 
-			d = ait.at().Doc()
-			for ait.at().Doc() == d {
+			d = ait.at()
+			for ait.at() == d {
 				if !ait.next() {
 					break scan
 				}
 			}
 
-			d = bit.at().Doc()
-			for bit.at().Doc() == d {
+			d = bit.at()
+			for bit.at() == d {
 				if !bit.next() {
 					break scan
 				}
 			}
 		}
 
-		for ait.at().Doc() < bit.at().Doc() {
-			if !ait.advance(bit.at().Doc()) {
+		for ait.at() < bit.at() {
+			if !ait.advance(bit.at()) {
 				break scan
 			}
 		}
 
-		for !bit.end() && ait.at().Doc() > bit.at().Doc() {
-			if !bit.advance(ait.at().Doc()) {
+		for !bit.end() && ait.at() > bit.at() {
+			if !bit.advance(ait.at()) {
 				break scan
 			}
 		}
