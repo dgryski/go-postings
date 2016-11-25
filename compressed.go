@@ -5,7 +5,25 @@ import "github.com/dgryski/go-groupvarint"
 type cPostings []compressedBlock
 
 type CompressedIndex struct {
-	p map[TermID]cPostings
+	p    map[TermID]cPostings
+	freq map[TermID]int
+}
+
+func NewCompressedIndex(idx *Index) *CompressedIndex {
+	cidx := CompressedIndex{
+		p:    make(map[TermID]cPostings),
+		freq: make(map[TermID]int),
+	}
+
+	for k, v := range idx.p {
+		cidx.p[k], cidx.freq[k] = newCompressedPostings(v), len(v)
+	}
+
+	return &cidx
+}
+
+func (idx *CompressedIndex) Postings(t TermID) (Iterator, int) {
+	return newCompressedIter(idx.p[t]), idx.freq[t]
 }
 
 func newCompressedPostings(p Postings) cPostings {

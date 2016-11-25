@@ -53,48 +53,62 @@ func (idx *Index) AddDocument(terms []TermID) DocID {
 	return id
 }
 
+func (idx *Index) Postings(t TermID) (Iterator, int) {
+	p := idx.p[t]
+	return newIter(p), len(p)
+}
+
 type tfList struct {
 	terms []TermID
 	freq  []int
+	iters []Iterator
 }
 
 func (tf tfList) Len() int { return len(tf.terms) }
 func (tf tfList) Swap(i, j int) {
 	tf.terms[i], tf.terms[j] = tf.terms[j], tf.terms[i]
 	tf.freq[i], tf.freq[j] = tf.freq[j], tf.freq[i]
+	tf.iters[i], tf.iters[j] = tf.iters[j], tf.iters[i]
 }
 func (tf tfList) Less(i, j int) bool { return tf.freq[i] < tf.freq[j] }
 
+type InvertedIndex interface {
+	Postings(t TermID) (Iterator, int)
+}
+
 // Query returns a list of postings that match the terms
-func (idx *Index) Query(ts []TermID) Postings {
+func Query(idx InvertedIndex, ts []TermID) Postings {
 
 	freq := make([]int, len(ts))
 	terms := make([]TermID, len(ts))
+	iters := make([]Iterator, len(ts))
 	for i, t := range ts {
-		d := idx.p[t]
-		if len(d) == 0 {
+		d, f := idx.Postings(t)
+		if d.end() {
 			return nil
 		}
 		terms[i] = t
-		freq[i] = len(d)
+		freq[i] = f
+		iters[i] = d
 	}
 
-	sort.Sort(tfList{terms, freq})
+	tf := tfList{terms, freq, iters}
 
-	docs := idx.p[terms[0]]
+	sort.Sort(tf)
 
-	result := make(Postings, len(docs))
+	var docs Iterator = iters[0]
 
-	for _, t := range terms[1:] {
-		d := idx.p[t]
-		result = intersect(result[:0], newIter(docs), newIter(d))
-		docs = result
-		if len(docs) == 0 {
+	result := make(Postings, freq[0])
+
+	for _, t := range iters[1:] {
+		result = intersect(result[:0], docs, t)
+		if len(result) == 0 {
 			return nil
 		}
+		docs = newIter(result)
 	}
 
-	return docs
+	return result
 }
 
 //  Postings is a list of documents
