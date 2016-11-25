@@ -98,13 +98,13 @@ func TestCompressedPosting(t *testing.T) {
 
 		t.Logf("size=%d len(cp)=%d", s, len(cp))
 
-		if err := compareIterators(t.Logf, newIter(p), newCompressedIter(cp)); err != nil {
+		if err := compareIteratorsAdvance(t.Logf, newIter(p), newCompressedIter(cp)); err != nil {
 			t.Fatalf("size: %d: err=%v", s, err)
 		}
 	}
 }
 
-func compareIterators(printf func(string, ...interface{}), ait, bit Iterator) error {
+func compareIteratorsNext(printf func(string, ...interface{}), ait, bit Iterator) error {
 
 	for !ait.end() && !bit.end() {
 
@@ -117,6 +117,30 @@ func compareIterators(printf func(string, ...interface{}), ait, bit Iterator) er
 
 		ait.next()
 		bit.next()
+	}
+
+	if ait.end() != bit.end() {
+		return fmt.Errorf("end length mismatch: a=%v b=%v", ait.end(), bit.end())
+	}
+
+	return nil
+}
+
+func compareIteratorsAdvance(printf func(string, ...interface{}), ait, bit Iterator) error {
+
+	for !ait.end() && !bit.end() {
+
+		a := ait.at()
+		b := bit.at()
+
+		if a != b {
+			return fmt.Errorf("mismatch: got=%d want=%d", a, b)
+		}
+
+		next := a + 256
+
+		ait.advance(next)
+		bit.advance(next)
 	}
 
 	if ait.end() != bit.end() {

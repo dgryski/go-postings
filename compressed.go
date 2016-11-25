@@ -85,7 +85,17 @@ func (cp *cpiter) advance(d DocID) bool {
 		}
 
 		cp.it = newCBlockIter(cp.c[cp.blockID])
-		return cp.it.advance(d)
+		if !cp.it.advance(d) {
+			// wasn't in that block
+			cp.blockID++
+
+			if cp.blockID == len(cp.c) {
+				return false
+			}
+
+			cp.it = newCBlockIter(cp.c[cp.blockID])
+			return cp.it.advance(d)
+		}
 	}
 
 	return !cp.end()
