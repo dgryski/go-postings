@@ -76,13 +76,33 @@ func (cp *cpiter) next() bool {
 
 func (cp *cpiter) advance(d DocID) bool {
 
-	if !cp.it.advance(d) {
+	if cp.blockID+1 < len(cp.c) && cp.c[cp.blockID+1].docID < d || !cp.it.advance(d) {
 		// end of current iterator
 		// linear scan for next one
 		// TODO(dgryski): binary/galloping search?
-		for cp.blockID+1 < len(cp.c) && cp.c[cp.blockID+1].docID < d {
-			cp.blockID++
+
+		bound := 1
+		for cp.blockID+bound < len(cp.c) && d > cp.c[cp.blockID+bound].docID {
+			bound *= 2
 		}
+
+		// inlined binary search between the last two steps
+		n := d
+		low, high := cp.blockID+bound/2, cp.blockID+bound
+		if high > len(cp.c) {
+			high = len(cp.c)
+		}
+
+		for low < high {
+			mid := low + (high-low)/2
+			if cp.c[mid].docID >= n {
+				high = mid
+			} else {
+				low = mid + 1
+			}
+		}
+
+		cp.blockID = low - 1
 
 		cp.it = newCBlockIter(cp.c[cp.blockID])
 		if !cp.it.advance(d) {
@@ -125,7 +145,7 @@ type cblockiter struct {
 	offs    uint16    // offset into c.groups
 }
 
-const blockLimitBytes = 4096
+const blockLimitBytes = 1024
 
 func newCompressedBlock(docs Postings) (Postings, compressedBlock) {
 
