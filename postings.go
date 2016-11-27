@@ -155,14 +155,6 @@ func (it *piter) advance(d DocID) bool {
 		}
 	}
 
-	// linear scan back for the start of this document
-	if low < len(it.list) {
-		n = it.list[low]
-		for low > 0 && n == it.list[low-1] {
-			low--
-		}
-	}
-
 	it.idx = low
 
 	return !it.end()
