@@ -79,6 +79,17 @@ type InvertedIndex interface {
 // Query returns a list of postings that match the terms
 func Query(idx InvertedIndex, ts []TermID) Postings {
 
+	if len(ts) == 1 {
+		iter, f := idx.Postings(ts[0])
+		result := make(Postings, 0, f)
+
+		for !iter.end() {
+			result = append(result, iter.at())
+			iter.next()
+		}
+		return result
+	}
+
 	freq := make([]int, len(ts))
 	terms := make([]TermID, len(ts))
 	iters := make([]Iterator, len(ts))
