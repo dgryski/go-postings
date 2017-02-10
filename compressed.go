@@ -16,7 +16,9 @@ func NewCompressedIndex(idx *Index) *CompressedIndex {
 	}
 
 	for k, v := range idx.p {
-		cidx.p[k], cidx.freq[k] = newCompressedPostings(v), len(v)
+		if len(v) > 0 {
+			cidx.p[TermID(k)], cidx.freq[TermID(k)] = newCompressedPostings(v), len(v)
+		}
 	}
 
 	return &cidx
