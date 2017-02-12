@@ -27,12 +27,20 @@ func TestQuery(t *testing.T) {
 	docs = append(docs, idx.AddDocument([]TermID{1, 2, 4}))
 	docs = append(docs, idx.AddDocument([]TermID{1, 2, 5}))
 
-	q := []TermID{2}
-	want := Postings{0, 1, 2}
+	tests := []struct {
+		q    []TermID
+		want Postings
+	}{
+		{[]TermID{2}, Postings{0, 1, 2}},
+		{[]TermID{3}, Postings{0}},
+		{[]TermID{1, 4}, Postings{1}},
+	}
 
-	got := Query(idx, q)
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("Query(%v)=%v, want %v", q, got, want)
+	for _, tt := range tests {
+		got := Query(idx, tt.q)
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("Query(%v)=%v, want %v", tt.q, got, tt.want)
+		}
 	}
 
 }
