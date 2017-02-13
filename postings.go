@@ -13,12 +13,14 @@ type DocID uint32
 type TermID uint32
 
 type Index struct {
-	p         [1 << 24]Postings
+	p         map[TermID]Postings
 	nextDocID DocID
 	stop      map[TermID]struct{}
 }
 
 func NewIndex(stop []TermID) *Index {
+	p := make(map[TermID]Postings)
+
 	var mstop map[TermID]struct{}
 
 	if len(stop) > 0 {
@@ -29,7 +31,7 @@ func NewIndex(stop []TermID) *Index {
 		}
 	}
 
-	return &Index{stop: mstop}
+	return &Index{p: p, stop: mstop}
 }
 
 func (idx *Index) AddDocument(terms []TermID) DocID {
