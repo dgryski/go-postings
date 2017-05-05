@@ -125,8 +125,6 @@ func Query(idx InvertedIndex, ts []TermID) Postings {
 //  Postings is a list of documents
 type Postings []DocID
 
-const debug = false
-
 // piter is a posting list iterator
 type piter struct {
 	list Postings
